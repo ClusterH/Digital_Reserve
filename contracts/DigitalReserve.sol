@@ -238,7 +238,7 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
         
         _convertEthToStrategyTokens(ethConverted, deadline);
 
-        emit StrategyChange(oldUSDCTokens, oldaUSDCTokens, usdcToken_, ausdcToken_, 100, totalTokenStored());
+        emit SetToken(oldUSDCTokens, oldaUSDCTokens, usdcToken_, ausdcToken_, totalTokenStored());
     }
 
     /**
