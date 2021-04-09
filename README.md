@@ -155,30 +155,6 @@ The contract owner can execute the following functions:
 
 ### Readonly functions:
 
-#### strategyTokenCount
-
-```JS
-function strategyTokenCount() external view returns (uint8);
-```
-
-Returns length of the portfolio asset tokens. Can be used to get token addresses and percentage allocations.
-
-#### strategyTokens
-
-```JS
-function strategyTokens(uint8 index) external view returns (address);
-```
-
-Returns strategy token address at `index`.
-
-#### tokenPercentage
-
-```JS
-function tokenPercentage(address tokenAddress) external view returns (uint8);
-```
-
-Returns strategy token percentage allocation.
-
 #### withdrawalFee
 
 ```JS
@@ -198,7 +174,7 @@ Returns Proof of Deposit price decimal `18`.
 #### totalTokenStored
 
 ```JS
-function totalTokenStored() external view returns (uint256[] memory);
+function totalTokenStored() external view returns (uint256);
 ```
 
 Returns total strategy tokens stored.
@@ -247,21 +223,14 @@ Withdraw a percentage of holding from DR. deadline	is Unix timestamp after which
 
 ### Events
 
-#### StrategyChange
+#### SetToken
 
 ```JS
-event StrategyChange(address[] oldTokens, uint8[] oldPercentage, address[] newTokens, uint8[] newPercentage);
+event StrategyChange(address oldTokenA, address oldTokenA, address newTokenA, address newTokenB, uint256 tokensStored);
 ```
 
 Emit when strategy set or change function is called by owner.
 
-#### Rebalance
-
-```JS
-event Rebalance(address[] strategyTokens, uint8[] tokenPercentage);
-```
-
-Emit each time a rebalance function is called by owner.
 
 #### Deposit
 
