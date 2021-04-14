@@ -17,40 +17,28 @@ export interface Deposit {
     amount: BN;
     podMinted: BN;
     podTotalSupply: BN;
-    tokensStored: BN[];
+    tokensStored: BN;
     0: string;
     1: BN;
     2: BN;
     3: BN;
-    4: BN[];
+    4: BN;
   };
 }
 
-export interface Rebalance {
-  name: "Rebalance";
+export interface SetToken {
+  name: "SetToken";
   args: {
-    strategyTokens: string[];
-    tokenPercentage: BN[];
-    tokensStored: BN[];
-    0: string[];
-    1: BN[];
-    2: BN[];
-  };
-}
-
-export interface StrategyChange {
-  name: "StrategyChange";
-  args: {
-    oldTokens: string[];
-    oldPercentage: BN[];
-    newTokens: string[];
-    newPercentage: BN[];
-    tokensStored: BN[];
-    0: string[];
-    1: BN[];
-    2: string[];
-    3: BN[];
-    4: BN[];
+    oldTokenA: string;
+    oldTokenB: string;
+    newTokenA: string;
+    newTokenB: string;
+    tokensStored: BN;
+    0: string;
+    1: string;
+    2: string;
+    3: string;
+    4: BN;
   };
 }
 
@@ -62,33 +50,19 @@ export interface Withdraw {
     fees: BN;
     podBurned: BN;
     podTotalSupply: BN;
-    tokensStored: BN[];
+    tokensStored: BN;
     0: string;
     1: BN;
     2: BN;
     3: BN;
     4: BN;
-    5: BN[];
+    5: BN;
   };
 }
 
-type AllEvents = Deposit | Rebalance | StrategyChange | Withdraw;
+type AllEvents = Deposit | SetToken | Withdraw;
 
 export interface IDigitalReserveInstance extends Truffle.ContractInstance {
-  /**
-   * Returns length of the portfolio asset tokens.  Can be used to get token addresses and percentage allocations.
-   */
-  strategyTokenCount(txDetails?: Truffle.TransactionDetails): Promise<BN>;
-
-  /**
-   * Returns a strategy token address.
-   * @param index The index of a strategy token
-   */
-  strategyTokens(
-    index: number | BN | string,
-    txDetails?: Truffle.TransactionDetails
-  ): Promise<{ 0: string; 1: BN }>;
-
   /**
    * Returns withdrawal withdrawal fee.
    */
@@ -104,27 +78,16 @@ export interface IDigitalReserveInstance extends Truffle.ContractInstance {
   /**
    * Returns total strategy tokens stored in an array. The output amount sequence is the strategyTokens() array sequence.
    */
-  totalTokenStored(txDetails?: Truffle.TransactionDetails): Promise<BN[]>;
+  totalTokenStored(txDetails?: Truffle.TransactionDetails): Promise<BN>;
 
   /**
    * Returns how much user's vault share in DRC amount.
-   * @param percentage Percentage of user holding
    * @param user Address of a DR user
    */
   getUserVaultInDrc(
     user: string,
-    percentage: number | BN | string,
     txDetails?: Truffle.TransactionDetails
   ): Promise<{ 0: BN; 1: BN; 2: BN }>;
-
-  /**
-   * Get deposit price impact
-   * @param drcAmount DRC amount user want to deposit.
-   */
-  depositPriceImpact(
-    drcAmount: number | BN | string,
-    txDetails?: Truffle.TransactionDetails
-  ): Promise<BN>;
 
   /**
    * Proof of Deposit net unit worth.
@@ -217,20 +180,6 @@ export interface IDigitalReserveInstance extends Truffle.ContractInstance {
 
   methods: {
     /**
-     * Returns length of the portfolio asset tokens.  Can be used to get token addresses and percentage allocations.
-     */
-    strategyTokenCount(txDetails?: Truffle.TransactionDetails): Promise<BN>;
-
-    /**
-     * Returns a strategy token address.
-     * @param index The index of a strategy token
-     */
-    strategyTokens(
-      index: number | BN | string,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<{ 0: string; 1: BN }>;
-
-    /**
      * Returns withdrawal withdrawal fee.
      */
     withdrawalFee(
@@ -245,27 +194,16 @@ export interface IDigitalReserveInstance extends Truffle.ContractInstance {
     /**
      * Returns total strategy tokens stored in an array. The output amount sequence is the strategyTokens() array sequence.
      */
-    totalTokenStored(txDetails?: Truffle.TransactionDetails): Promise<BN[]>;
+    totalTokenStored(txDetails?: Truffle.TransactionDetails): Promise<BN>;
 
     /**
      * Returns how much user's vault share in DRC amount.
-     * @param percentage Percentage of user holding
      * @param user Address of a DR user
      */
     getUserVaultInDrc(
       user: string,
-      percentage: number | BN | string,
       txDetails?: Truffle.TransactionDetails
     ): Promise<{ 0: BN; 1: BN; 2: BN }>;
-
-    /**
-     * Get deposit price impact
-     * @param drcAmount DRC amount user want to deposit.
-     */
-    depositPriceImpact(
-      drcAmount: number | BN | string,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<BN>;
 
     /**
      * Proof of Deposit net unit worth.

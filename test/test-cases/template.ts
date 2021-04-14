@@ -9,5 +9,8 @@ export const template = async (accounts: Truffle.Accounts) => {
     instance = await DigitalReserve.deployed();
   });
 
-  it("Should", async () => {});
+  it("Should", async () => {
+    const totalSupply = await instance.totalSupply();
+    assert.equal(totalSupply.toNumber(), 0);
+  });
 };

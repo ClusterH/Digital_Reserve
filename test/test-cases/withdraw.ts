@@ -17,7 +17,7 @@ export const testWithdraw = async (accounts: Truffle.Accounts) => {
 
     newtworkType = (await web3.eth.net.getNetworkType()) as Network;
 
-    const valueInDrc = await instance.getUserVaultInDrc(accounts[0], 100);
+    const valueInDrc = await instance.getUserVaultInDrc(accounts[0]);
     prevDrcUserCanWithdraw = valueInDrc[1].toNumber();
     const userPod = await instance.balanceOf(accounts[0]);
     prevUserPod = Number(web3.utils.fromWei(userPod));
@@ -28,6 +28,8 @@ export const testWithdraw = async (accounts: Truffle.Accounts) => {
       10000,
       getUnixTimeAfterMins(10)
     );
+
+    console.log("prevUserPod===>", prevUserPod, prevDrcUserCanWithdraw);
 
     const withdrawLog = withdrawResult.logs.find(
       (log) => log.event === "Withdraw"
@@ -46,7 +48,7 @@ export const testWithdraw = async (accounts: Truffle.Accounts) => {
       );
       assert.equal(withdrawLog.args.user, accounts[0]);
 
-      const valueInDrc = await instance.getUserVaultInDrc(accounts[0], 100);
+      const valueInDrc = await instance.getUserVaultInDrc(accounts[0]);
       const currentDrcUserCanWithdraw = valueInDrc[1].toNumber();
 
       assert.equal(
@@ -61,7 +63,7 @@ export const testWithdraw = async (accounts: Truffle.Accounts) => {
   });
 
   it("Should be able to withdraw 100% DRC and burn DR-POD", async () => {
-    const valueInDrc = await instance.getUserVaultInDrc(accounts[0], 100);
+    const valueInDrc = await instance.getUserVaultInDrc(accounts[0]);
     const currentDrcUserCanWithdraw = valueInDrc[1].toNumber();
 
     const withdrawResult = await instance.withdrawPercentage(

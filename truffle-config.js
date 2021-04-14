@@ -37,6 +37,21 @@ module.exports = {
       confirmations: 2,
       from: fromAddress,
     },
+    kovan: {
+      provider: () =>
+        new HDWalletProvider(
+          mnemonic,
+          `wss://kovan.infura.io/ws/v3/${infuraKey}`
+        ),
+      network_id: 42,
+      gas: 6721975,
+      gasPrice: 10000000000,
+      networkCheckTimeout: 10000000,
+      confirmations: 2,
+      timeoutBlocks: 200,
+      skipDryRun: true,
+      from: fromAddress,
+    },
     main: {
       provider: () =>
         new HDWalletProvider(

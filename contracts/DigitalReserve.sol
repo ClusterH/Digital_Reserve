@@ -14,6 +14,7 @@ import "./interfaces/Uniswap/IUniswapV2Router02.sol";
 
 import "./interfaces/AAVE/ILendingPoolAddressesProvider.sol";
 import "./interfaces/AAVE/ILendingPool.sol";
+import "./interfaces/AAVE/IProtocolDataProvider.sol";
 
 import "./interfaces/IDigitalReserve.sol";
 
@@ -38,6 +39,7 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
     constructor(
         address _router,
         address _aaveRouter,
+        address _aaveProtocol,
         address _drcAddress,
         string memory _name,
         string memory _symbol
@@ -45,6 +47,7 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
         drcAddress = _drcAddress;
         uniswapRouter = IUniswapV2Router02(_router);
         aaveLendingPool = ILendingPoolAddressesProvider(_aaveRouter);
+        aaveProtocol = IProtocolDataProvider(_aaveProtocol);
     }
 
     uint8 private _feeFraction = 1;
@@ -60,6 +63,7 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
 
     IUniswapV2Router02 private immutable uniswapRouter;
     ILendingPoolAddressesProvider private immutable aaveLendingPool;
+    IProtocolDataProvider private immutable aaveProtocol;
 
     /**
      * @dev See {IDigitalReserve-withdrawalFee}.
@@ -79,6 +83,7 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
      * @dev See {IDigitalReserve-totalTokenStored}.
      */
     function totalTokenStored() public view override returns (uint256) {
+        require(_aUSDCAddress != address(0x00), "aUSDC address must be set.");
         uint256 amounts = 0;
         amounts = IERC20(_aUSDCAddress).balanceOf(address(this));
         return amounts;
@@ -88,12 +93,11 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
      * @dev See {IDigitalReserve-getUserVaultInDrc}.
      */
     function getUserVaultInDrc(
-        address user, 
-        uint8 percentage
+        address user
     ) public view override returns (uint256, uint256, uint256) {
         uint256 userStrategyTokens = _getStrategyTokensByPodAmount(balanceOf(user));
-        uint256 userVaultWorthInEth = _getEthAmountByTokenAmount(userStrategyTokens, _aUSDCAddress, true);
-        uint256 userVaultWorthInEthAfterSwap = _getEthAmountByTokenAmount(userStrategyTokens, _aUSDCAddress, false);
+        uint256 userVaultWorthInEth = _getEthAmountByTokenAmount(userStrategyTokens, _usdcToken, true);
+        uint256 userVaultWorthInEthAfterSwap = _getEthAmountByTokenAmount(userStrategyTokens, _usdcToken, false);
 
         uint256 drcAmountBeforeFees = _getTokenAmountByEthAmount(userVaultWorthInEth, drcAddress, true);
 
@@ -110,7 +114,7 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
         uint256 proofOfDepositPrice = 0;
         if (totalSupply() > 0) {
             ILendingPool lendingPool = ILendingPool(aaveLendingPool.getLendingPool());
-            (uint256 vaultTotalInEth, , , , , ,) = lendingPool.getUserAccountData(address(this));
+            (uint256 vaultTotalInEth, , , , , ) = lendingPool.getUserAccountData(address(this));
 
             proofOfDepositPrice = vaultTotalInEth.mul(1e18).div(totalSupply());
         }
@@ -121,12 +125,15 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
      * @dev See {IDigitalReserve-depositDrc}.
      */
     function depositDrc(uint256 drcAmount, uint32 deadline) external override {
-        require(depositEnabled, "Deposit is disabled.");
+        require(depositEnabled, "Deposit is disabled now.");
         require(IERC20(drcAddress).allowance(msg.sender, address(this)) >= drcAmount, "Contract is not allowed to spend user's DRC.");
         require(IERC20(drcAddress).balanceOf(msg.sender) >= drcAmount, "Attempted to deposit more than balance.");
 
-        SafeERC20.safeTransferFrom(IERC20(drcAddress), msg.sender, address(this), drcAmount);
+        /** For the production mode, it is better **/
+        // SafeERC20.safeTransferFrom(IERC20(drcAddress), msg.sender, address(this), drcAmount);
 
+        /** For the test mode, it is better to test and debug */
+        IERC20(drcAddress).transferFrom(msg.sender, address(this), drcAmount);
         // Get current unit price before adding tokens to vault
         uint256 currentPodUnitPrice = getProofOfDepositPrice();
 
@@ -138,7 +145,7 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
             podToMint = drcAmount.mul(1e15);
         } else {
             ILendingPool lendingPool = ILendingPool(aaveLendingPool.getLendingPool());
-            (uint256 vaultTotalInEth, , , , , ,) = lendingPool.getUserAccountData(address(this));
+            (uint256 vaultTotalInEth, , , , , ) = lendingPool.getUserAccountData(address(this));
             uint256 newPodTotal = vaultTotalInEth.mul(1e18).div(currentPodUnitPrice);
             podToMint = newPodTotal.sub(totalSupply());
         }
@@ -147,8 +154,6 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
 
         emit Deposit(msg.sender, drcAmount, podToMint, totalSupply(), totalTokenStored());
     }
-
-
 
     /**
      * @dev See {IDigitalReserve-withdrawDrc}.
@@ -165,7 +170,7 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
 
         uint256 userStrategyTokens = _getStrategyTokensByPodAmount(balanceOf(msg.sender));
 
-        uint256 userVaultWorth = _getEthAmountByTokenAmount(userStrategyTokens, _aUSDCAddress, false);
+        uint256 userVaultWorth = _getEthAmountByTokenAmount(userStrategyTokens, _usdcToken, false);
 
         require(userVaultWorth >= ethNeededPlusFee, "Attempt to withdraw more than user's holding.");
 
@@ -214,31 +219,37 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
     /**
      * @dev Set or change DR strategy tokens and allocations.
      * @param usdcToken_ strategy token address.
-     * @param ausdcToken_ strategy token address.
      * @param deadline Unix timestamp after which the transaction will revert.
      */
     function setTokenAddress(
         address usdcToken_,
-        address ausdcToken_,
         uint32 deadline
     ) external onlyOwner {
-        require(usdcToken_ != "", "USDC address must be set.");
+        require(usdcToken_ != address(0x00), "USDC address must be set.");
 
-        address oldUSDCTokens;
-        address oldaUSDCTokens;
+        address oldUSDCTokens = address(0x00);
+        address oldaUSDCTokens = address(0x00);
+        uint256 ethConverted = 0;
 
-        oldUSDCTokens = _usdcToken;
-        oldaUSDCTokens = _aUSDCAddress;
-
-        // Before mutate strategyTokens, convert current strategy tokens to ETH
-        uint256 ethConverted = _convertStrategyTokensToEth(totalTokenStored(), deadline);
+        if(_usdcToken != address(0x00) && _aUSDCAddress != address(0x00)){
+            oldUSDCTokens = _usdcToken;
+            oldaUSDCTokens = _aUSDCAddress;
+            // Before mutate strategyTokens, convert current strategy tokens to ETH
+            ethConverted = _convertStrategyTokensToEth(totalTokenStored(), deadline);
+        }
 
         _usdcToken = usdcToken_;
-        _aUSDCAddress = ausdcToken_;
-        
-        _convertEthToStrategyTokens(ethConverted, deadline);
+        (address aUSDCToken, , ) = aaveProtocol.getReserveTokensAddresses(usdcToken_);
 
-        emit SetToken(oldUSDCTokens, oldaUSDCTokens, usdcToken_, ausdcToken_, totalTokenStored());
+        _aUSDCAddress = aUSDCToken;
+        
+        if(ethConverted != 0){
+            _convertEthToStrategyTokens(ethConverted, deadline);
+        }
+
+        // if(_aUSDCAddress != address(0x00)){
+            emit SetToken(oldUSDCTokens, oldaUSDCTokens, _usdcToken, _aUSDCAddress, totalTokenStored());
+        // }
     }
 
     /**
@@ -256,8 +267,13 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
 
         uint256 drcAmount = _convertEthToToken(ethConverted.sub(fees), drcAddress, deadline);
 
-        SafeERC20.safeTransfer(IERC20(drcAddress), msg.sender, drcAmount);
-        SafeERC20.safeTransfer(IERC20(uniswapRouter.WETH()), owner(), fees);
+        /** For the production mode, it is better */
+        // SafeERC20.safeTransfer(IERC20(drcAddress), msg.sender, drcAmount);
+        // SafeERC20.safeTransfer(IERC20(uniswapRouter.WETH()), owner(), fees);
+
+        /** For the test mode, it is better to test and debug. */
+        IERC20(drcAddress).transfer(msg.sender, drcAmount);
+        IERC20(uniswapRouter.WETH()).transfer(owner(), fees);
 
         emit Withdraw(msg.sender, drcAmount, fees, podToBurn, totalSupply(), totalTokenStored());
     }
@@ -353,8 +369,12 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
         path[0] = _tokenAddress;
         path[1] = uniswapRouter.WETH();
 
-        SafeERC20.safeApprove(IERC20(path[0]), address(uniswapRouter), _amount);
-        
+        /** For the production mode, it is better */
+        // SafeERC20.safeApprove(IERC20(path[0]), address(uniswapRouter), _amount);
+
+        /** For the test mode, it is better to test and debug */
+        IERC20(path[0]).approve(address(uniswapRouter), _amount);
+
         uint256 amountOut = uniswapRouter.getAmountsOut(_amount, path)[1];
         uint256 amountOutWithFeeTolerance = amountOut.mul(999).div(1000);
         uint256 ethBeforeSwap = IERC20(path[1]).balanceOf(address(this));
@@ -380,7 +400,13 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
         address[] memory path = new address[](2);
         path[0] = uniswapRouter.WETH();
         path[1] = _tokenAddress;
-        SafeERC20.safeApprove(IERC20(path[0]), address(uniswapRouter), _amount);
+
+        /** For the production mode, it is better */
+        // SafeERC20.safeApprove(IERC20(path[0]), address(uniswapRouter), _amount);
+
+        /** For the test mode, it is better to test and debug */
+        IERC20(path[0]).approve(address(uniswapRouter), _amount);
+
         uint256 amountOut = uniswapRouter.getAmountsOut(_amount, path)[1];
         uniswapRouter.swapExactTokensForTokens(_amount, amountOut, path, address(this), deadline);
         return amountOut;
@@ -397,10 +423,15 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
     ) private returns (uint256) {
         uint256 EthToTokenAmount = _convertEthToToken(amount, _usdcToken, deadline);
 
-        SafeERC20.safeApprove(IERC20(_usdcToken), address(aaveLendingPool), amount);
-
-        uint256 referralCode = 0;
+        uint16 referralCode = 0;
         ILendingPool lendingPool = ILendingPool(aaveLendingPool.getLendingPool());
+
+        /** For the production mode, it is better */
+        // SafeERC20.safeApprove(IERC20(_usdcToken), address(aaveLendingPool), amount);
+
+        /** For the test mode, it is better to test and debug */
+        IERC20(_usdcToken).approve(address(lendingPool), EthToTokenAmount);
+
         lendingPool.deposit(_usdcToken, EthToTokenAmount, address(this), referralCode);
     }
 
@@ -410,7 +441,7 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
      * @param deadline Unix timestamp after which the transaction will revert.
      */
     function _convertStrategyTokensToEth(
-        uint256 memory amountToConvert, 
+        uint256 amountToConvert, 
         uint32 deadline
     ) private returns (uint256) {
         uint256 ethConverted = 0;

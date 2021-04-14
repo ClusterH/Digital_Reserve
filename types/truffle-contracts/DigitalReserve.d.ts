@@ -9,6 +9,8 @@ export interface DigitalReserveContract
   extends Truffle.Contract<DigitalReserveInstance> {
   "new"(
     _router: string,
+    _aaveRouter: string,
+    _aaveProtocol: string,
     _drcAddress: string,
     _name: string,
     _symbol: string,
@@ -35,12 +37,12 @@ export interface Deposit {
     amount: BN;
     podMinted: BN;
     podTotalSupply: BN;
-    tokensStored: BN[];
+    tokensStored: BN;
     0: string;
     1: BN;
     2: BN;
     3: BN;
-    4: BN[];
+    4: BN;
   };
 }
 
@@ -54,31 +56,19 @@ export interface OwnershipTransferred {
   };
 }
 
-export interface Rebalance {
-  name: "Rebalance";
+export interface SetToken {
+  name: "SetToken";
   args: {
-    strategyTokens: string[];
-    tokenPercentage: BN[];
-    tokensStored: BN[];
-    0: string[];
-    1: BN[];
-    2: BN[];
-  };
-}
-
-export interface StrategyChange {
-  name: "StrategyChange";
-  args: {
-    oldTokens: string[];
-    oldPercentage: BN[];
-    newTokens: string[];
-    newPercentage: BN[];
-    tokensStored: BN[];
-    0: string[];
-    1: BN[];
-    2: string[];
-    3: BN[];
-    4: BN[];
+    oldTokenA: string;
+    oldTokenB: string;
+    newTokenA: string;
+    newTokenB: string;
+    tokensStored: BN;
+    0: string;
+    1: string;
+    2: string;
+    3: string;
+    4: BN;
   };
 }
 
@@ -102,13 +92,13 @@ export interface Withdraw {
     fees: BN;
     podBurned: BN;
     podTotalSupply: BN;
-    tokensStored: BN[];
+    tokensStored: BN;
     0: string;
     1: BN;
     2: BN;
     3: BN;
     4: BN;
-    5: BN[];
+    5: BN;
   };
 }
 
@@ -116,8 +106,7 @@ type AllEvents =
   | Approval
   | Deposit
   | OwnershipTransferred
-  | Rebalance
-  | StrategyChange
+  | SetToken
   | Transfer
   | Withdraw;
 
@@ -332,19 +321,6 @@ export interface DigitalReserveInstance extends Truffle.ContractInstance {
   };
 
   /**
-   * See {IDigitalReserve-strategyTokenCount}.
-   */
-  strategyTokenCount(txDetails?: Truffle.TransactionDetails): Promise<BN>;
-
-  /**
-   * See {IDigitalReserve-strategyTokens}.
-   */
-  strategyTokens(
-    index: number | BN | string,
-    txDetails?: Truffle.TransactionDetails
-  ): Promise<{ 0: string; 1: BN }>;
-
-  /**
    * See {IDigitalReserve-withdrawalFee}.
    */
   withdrawalFee(
@@ -359,14 +335,13 @@ export interface DigitalReserveInstance extends Truffle.ContractInstance {
   /**
    * See {IDigitalReserve-totalTokenStored}.
    */
-  totalTokenStored(txDetails?: Truffle.TransactionDetails): Promise<BN[]>;
+  totalTokenStored(txDetails?: Truffle.TransactionDetails): Promise<BN>;
 
   /**
    * See {IDigitalReserve-getUserVaultInDrc}.
    */
   getUserVaultInDrc(
     user: string,
-    percentage: number | BN | string,
     txDetails?: Truffle.TransactionDetails
   ): Promise<{ 0: BN; 1: BN; 2: BN }>;
 
@@ -374,14 +349,6 @@ export interface DigitalReserveInstance extends Truffle.ContractInstance {
    * See {IDigitalReserve-getProofOfDepositPrice}.
    */
   getProofOfDepositPrice(txDetails?: Truffle.TransactionDetails): Promise<BN>;
-
-  /**
-   * See {IDigitalReserve-depositPriceImpact}.
-   */
-  depositPriceImpact(
-    drcAmount: number | BN | string,
-    txDetails?: Truffle.TransactionDetails
-  ): Promise<BN>;
 
   /**
    * See {IDigitalReserve-depositDrc}.
@@ -514,54 +481,26 @@ export interface DigitalReserveInstance extends Truffle.ContractInstance {
   /**
    * Set or change DR strategy tokens and allocations.
    * @param deadline Unix timestamp after which the transaction will revert.
-   * @param strategyTokens_ Array of strategy tokens.
-   * @param tokenPercentage_ Array of strategy tokens' percentage allocations.
+   * @param usdcToken_ strategy token address.
    */
-  changeStrategy: {
+  setTokenAddress: {
     (
-      strategyTokens_: string[],
-      tokenPercentage_: (number | BN | string)[],
+      usdcToken_: string,
       deadline: number | BN | string,
       txDetails?: Truffle.TransactionDetails
     ): Promise<Truffle.TransactionResponse<AllEvents>>;
     call(
-      strategyTokens_: string[],
-      tokenPercentage_: (number | BN | string)[],
+      usdcToken_: string,
       deadline: number | BN | string,
       txDetails?: Truffle.TransactionDetails
     ): Promise<void>;
     sendTransaction(
-      strategyTokens_: string[],
-      tokenPercentage_: (number | BN | string)[],
+      usdcToken_: string,
       deadline: number | BN | string,
       txDetails?: Truffle.TransactionDetails
     ): Promise<string>;
     estimateGas(
-      strategyTokens_: string[],
-      tokenPercentage_: (number | BN | string)[],
-      deadline: number | BN | string,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<number>;
-  };
-
-  /**
-   * Realigning the weighting of a portfolio of assets to the strategy allocation that is defined. Only convert the amount that's necessory to convert to not be charged 0.3% uniswap fee for everything. This in total saves 0.6% fee for majority of the assets.
-   * @param deadline Unix timestamp after which the transaction will revert.
-   */
-  rebalance: {
-    (
-      deadline: number | BN | string,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<Truffle.TransactionResponse<AllEvents>>;
-    call(
-      deadline: number | BN | string,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<void>;
-    sendTransaction(
-      deadline: number | BN | string,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<string>;
-    estimateGas(
+      usdcToken_: string,
       deadline: number | BN | string,
       txDetails?: Truffle.TransactionDetails
     ): Promise<number>;
@@ -778,19 +717,6 @@ export interface DigitalReserveInstance extends Truffle.ContractInstance {
     };
 
     /**
-     * See {IDigitalReserve-strategyTokenCount}.
-     */
-    strategyTokenCount(txDetails?: Truffle.TransactionDetails): Promise<BN>;
-
-    /**
-     * See {IDigitalReserve-strategyTokens}.
-     */
-    strategyTokens(
-      index: number | BN | string,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<{ 0: string; 1: BN }>;
-
-    /**
      * See {IDigitalReserve-withdrawalFee}.
      */
     withdrawalFee(
@@ -805,14 +731,13 @@ export interface DigitalReserveInstance extends Truffle.ContractInstance {
     /**
      * See {IDigitalReserve-totalTokenStored}.
      */
-    totalTokenStored(txDetails?: Truffle.TransactionDetails): Promise<BN[]>;
+    totalTokenStored(txDetails?: Truffle.TransactionDetails): Promise<BN>;
 
     /**
      * See {IDigitalReserve-getUserVaultInDrc}.
      */
     getUserVaultInDrc(
       user: string,
-      percentage: number | BN | string,
       txDetails?: Truffle.TransactionDetails
     ): Promise<{ 0: BN; 1: BN; 2: BN }>;
 
@@ -820,14 +745,6 @@ export interface DigitalReserveInstance extends Truffle.ContractInstance {
      * See {IDigitalReserve-getProofOfDepositPrice}.
      */
     getProofOfDepositPrice(txDetails?: Truffle.TransactionDetails): Promise<BN>;
-
-    /**
-     * See {IDigitalReserve-depositPriceImpact}.
-     */
-    depositPriceImpact(
-      drcAmount: number | BN | string,
-      txDetails?: Truffle.TransactionDetails
-    ): Promise<BN>;
 
     /**
      * See {IDigitalReserve-depositDrc}.
@@ -960,54 +877,26 @@ export interface DigitalReserveInstance extends Truffle.ContractInstance {
     /**
      * Set or change DR strategy tokens and allocations.
      * @param deadline Unix timestamp after which the transaction will revert.
-     * @param strategyTokens_ Array of strategy tokens.
-     * @param tokenPercentage_ Array of strategy tokens' percentage allocations.
+     * @param usdcToken_ strategy token address.
      */
-    changeStrategy: {
+    setTokenAddress: {
       (
-        strategyTokens_: string[],
-        tokenPercentage_: (number | BN | string)[],
+        usdcToken_: string,
         deadline: number | BN | string,
         txDetails?: Truffle.TransactionDetails
       ): Promise<Truffle.TransactionResponse<AllEvents>>;
       call(
-        strategyTokens_: string[],
-        tokenPercentage_: (number | BN | string)[],
+        usdcToken_: string,
         deadline: number | BN | string,
         txDetails?: Truffle.TransactionDetails
       ): Promise<void>;
       sendTransaction(
-        strategyTokens_: string[],
-        tokenPercentage_: (number | BN | string)[],
+        usdcToken_: string,
         deadline: number | BN | string,
         txDetails?: Truffle.TransactionDetails
       ): Promise<string>;
       estimateGas(
-        strategyTokens_: string[],
-        tokenPercentage_: (number | BN | string)[],
-        deadline: number | BN | string,
-        txDetails?: Truffle.TransactionDetails
-      ): Promise<number>;
-    };
-
-    /**
-     * Realigning the weighting of a portfolio of assets to the strategy allocation that is defined. Only convert the amount that's necessory to convert to not be charged 0.3% uniswap fee for everything. This in total saves 0.6% fee for majority of the assets.
-     * @param deadline Unix timestamp after which the transaction will revert.
-     */
-    rebalance: {
-      (
-        deadline: number | BN | string,
-        txDetails?: Truffle.TransactionDetails
-      ): Promise<Truffle.TransactionResponse<AllEvents>>;
-      call(
-        deadline: number | BN | string,
-        txDetails?: Truffle.TransactionDetails
-      ): Promise<void>;
-      sendTransaction(
-        deadline: number | BN | string,
-        txDetails?: Truffle.TransactionDetails
-      ): Promise<string>;
-      estimateGas(
+        usdcToken_: string,
         deadline: number | BN | string,
         txDetails?: Truffle.TransactionDetails
       ): Promise<number>;

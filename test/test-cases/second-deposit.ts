@@ -47,9 +47,6 @@ export const testSecondDeposit = async (accounts: Truffle.Accounts) => {
       await instance.getProofOfDepositPrice()
     );
 
-    const priceImpact = await instance.depositPriceImpact(90000);
-    console.log("priceImpact", priceImpact.toNumber());
-
     const depositResult = await instance.depositDrc(
       90000,
       getUnixTimeAfterMins(10)
@@ -68,14 +65,12 @@ export const testSecondDeposit = async (accounts: Truffle.Accounts) => {
 
     if (depositLog) {
       assert.equal(depositLog.args.amount.toNumber(), 90000);
-      assert.isAbove(
-        Number(web3.utils.fromWei(depositLog.args.podMinted)),
-        10
-      );
+      assert.isAbove(Number(web3.utils.fromWei(depositLog.args.podMinted)), 10);
       assert.equal(
         Number(web3.utils.fromWei(depositLog.args.podTotalSupply)),
         Number(web3.utils.fromWei(depositLog.args.podMinted)) + 1
       );
+      console.log("total mint POD amount in wei===>", web3.utils.fromWei(depositLog.args.podTotalSupply))
       assert.equal(depositLog.args.user, accounts[0]);
     }
   });
@@ -86,6 +81,9 @@ export const testSecondDeposit = async (accounts: Truffle.Accounts) => {
 
     const userBalance = await instance.balanceOf(accounts[0]);
     assert.isAbove(Number(web3.utils.fromWei(userBalance)), 90);
+
+    console.log("total supply and userBalance in wei===>", Number(web3.utils.fromWei(totalSupply)), Number(web3.utils.fromWei(userBalance)));
+
   });
 
   it("Should match designed percentage", async () => {
@@ -95,13 +93,12 @@ export const testSecondDeposit = async (accounts: Truffle.Accounts) => {
       newtworkType
     );
 
-    assert.equal(tokenPercentage[0], 40);
-    assert.equal(tokenPercentage[1], 40);
-    assert.equal(tokenPercentage[2], 20);
+    assert.equal(tokenPercentage, 100);
   });
 
   it("Should have proof of deposit price above 0", async () => {
     const drPodPrice = (await instance.getProofOfDepositPrice()).toNumber();
+    console.log("drPodPrice===>", drPodPrice);
     assert.isAbove(drPodPrice, 0);
   });
 };

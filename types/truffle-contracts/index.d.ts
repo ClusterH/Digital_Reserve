@@ -6,6 +6,9 @@ import { DigitalReserveContract } from "./DigitalReserve";
 import { ERC20Contract } from "./ERC20";
 import { IDigitalReserveContract } from "./IDigitalReserve";
 import { IERC20Contract } from "./IERC20";
+import { ILendingPoolContract } from "./ILendingPool";
+import { ILendingPoolAddressesProviderContract } from "./ILendingPoolAddressesProvider";
+import { IProtocolDataProviderContract } from "./IProtocolDataProvider";
 import { IUniswapV2FactoryContract } from "./IUniswapV2Factory";
 import { IUniswapV2PairContract } from "./IUniswapV2Pair";
 import { IUniswapV2Router01Contract } from "./IUniswapV2Router01";
@@ -20,6 +23,11 @@ declare global {
       require(name: "ERC20"): ERC20Contract;
       require(name: "IDigitalReserve"): IDigitalReserveContract;
       require(name: "IERC20"): IERC20Contract;
+      require(name: "ILendingPool"): ILendingPoolContract;
+      require(
+        name: "ILendingPoolAddressesProvider"
+      ): ILendingPoolAddressesProviderContract;
+      require(name: "IProtocolDataProvider"): IProtocolDataProviderContract;
       require(name: "IUniswapV2Factory"): IUniswapV2FactoryContract;
       require(name: "IUniswapV2Pair"): IUniswapV2PairContract;
       require(name: "IUniswapV2Router01"): IUniswapV2Router01Contract;
@@ -40,6 +48,15 @@ export {
   IDigitalReserveInstance,
 } from "./IDigitalReserve";
 export { IERC20Contract, IERC20Instance } from "./IERC20";
+export { ILendingPoolContract, ILendingPoolInstance } from "./ILendingPool";
+export {
+  ILendingPoolAddressesProviderContract,
+  ILendingPoolAddressesProviderInstance,
+} from "./ILendingPoolAddressesProvider";
+export {
+  IProtocolDataProviderContract,
+  IProtocolDataProviderInstance,
+} from "./IProtocolDataProvider";
 export {
   IUniswapV2FactoryContract,
   IUniswapV2FactoryInstance,

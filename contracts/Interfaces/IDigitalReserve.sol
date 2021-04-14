@@ -27,12 +27,11 @@ interface IDigitalReserve {
     /**
      * @dev Returns how much user's vault share in DRC amount.
      * @param user Address of a DR user
-     * @param percentage Percentage of user holding
      * @return The first output is total worth in DRC, 
      * second one is total DRC could withdraw (exclude fees), 
      * and last output is fees in wei.
      */
-    function getUserVaultInDrc(address user, uint8 percentage) external view returns (uint256, uint256, uint256);
+    function getUserVaultInDrc(address user) external view returns (uint256, uint256, uint256);
 
     /**
      * @dev Proof of Deposit net unit worth.

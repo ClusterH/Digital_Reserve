@@ -36,12 +36,18 @@ export const testInitialDeposit = async (accounts: Truffle.Accounts) => {
     );
   });
 
-  it("Should not able to deposit before deposit is enabled", async () => {
-    await assertRevert(
-      instance.depositDrc(1000, getUnixTimeAfterMins(10)),
-      "Deposit is disabled.",
-      "Can't deposit DRC before deposit is enabled"
-    );
+  // it("Should not able to deposit before deposit is enabled", async () => {
+  //   await assertRevert(
+  //     instance.depositDrc(1000, getUnixTimeAfterMins(10)),
+  //     "Deposit is disabled.",
+  //     "Can't deposit DRC before deposit is enabled"
+  //   );
+  // });
+
+  it("Should get Proof of Deposit Price before converitn DRC", async () => {
+    const POD = await instance.getProofOfDepositPrice();
+    console.log("POD price", Number(web3.utils.fromWei(POD)));
+    assert.equal(Number(web3.utils.fromWei(POD)), 0);
   });
 
   it("Should be able to deposit 1000 DRC and mint 1 DR-POD", async () => {
@@ -61,13 +67,6 @@ export const testInitialDeposit = async (accounts: Truffle.Accounts) => {
     console.log("DRC allowance", allowance);
 
     assert.equal(allowance, 1000);
-
-    try {
-      const priceImpact = await instance.depositPriceImpact(1000);
-      console.log('priceImpact', priceImpact.toNumber())
-    } catch(error) {
-      console.log("Get price impact error", error)
-    }
 
     const deposit1000Result = await instance.depositDrc(
       1000,
@@ -106,7 +105,7 @@ export const testInitialDeposit = async (accounts: Truffle.Accounts) => {
   });
 
   it("Should have correct DRC value", async () => {
-    const valueInDrc = await instance.getUserVaultInDrc(accounts[0], 100);
+    const valueInDrc = await instance.getUserVaultInDrc(accounts[0]);
     assert.isAtLeast(valueInDrc[0].toNumber(), 992);
     assert.equal(valueInDrc[1].toNumber(), 978);
   });
@@ -118,9 +117,7 @@ export const testInitialDeposit = async (accounts: Truffle.Accounts) => {
       newtworkType
     );
 
-    assert.equal(tokenPercentage[0], 40);
-    assert.equal(tokenPercentage[1], 40);
-    assert.equal(tokenPercentage[2], 20);
+    assert.equal(tokenPercentage, 100);
   });
 
   it("Should have proof of deposit price above 0", async () => {
