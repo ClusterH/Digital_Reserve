@@ -51,7 +51,7 @@ If the conditions are met, the contract will transfer the entered amount of DRC 
 
 Before converting DRC into other tokens, the contract will calculate the current Proof of Deposit (DR-POD) unit price to help evaluate how much DR-POD the new deposit is worth. DR-POD unit price calculation method is provided [here](#proof-of-deposit).
 
-The deposited DRC will first be converted to WETH via the Uniswap router. Then the WETH will be divided by the portfolio assets' allocation percentages, and be converted to portfolio assets.
+The deposited DRC will first be converted to WETH via the Uniswap router. Then the WETH will be converted to Strategy Token(ex: USDC), and then be deposited into Lending Pool, and finally be converted to portfolio assets.
 
 The new assets' total worth then are calculated. The new DR-POD total would be the new total worth divided by the current unit price. The newly minted amount of DR-POD will then be given to the user as their Proof of Deposit.
 
@@ -63,7 +63,7 @@ There are two methods that support withdrawal:
 
 To withdraw all of a user's holding, it's recommended to use withdraw by percentage, and enter 100 percent.
 
-For both methods, the contract will calculate the share of the assets the user is withdrawing and convert that to WETH, then to further convert to DRC and transfer to the user. Details below:
+For both methods, the contract will calculate the share of the assets the user is withdrawing and withdraw from Lengin Pool ,and convert that to WETH, then to further convert to DRC and transfer to the user. Details below:
 
 ### Method 1: Withdraw a certain amount of DRC
 
@@ -91,32 +91,21 @@ Note: A 1% fee will be applied at the time of withdrawal, which helps fund the p
 
 ## Set and change strategy
 
-The contract owner can set and change the portfolio assets and their allocations.
+The contract owner can set and change the portfolio assets.
 
-Once the contract is deployed, owner can set the portfolio assets by providing the tokenized assets' addresses and the percentage allocations of each asset.
+Once the contract is deployed, owner can set the portfolio assets by providing the tokenized assets' addresses.
 
 The contract will make sure:
 - At least 1 asset address is set
-- The percentage allocations add up to exactly 100%
 
-The percentage allocations will be used in the deposit process and rebalancing process.
-
-Once the portfolio assets and their allocations are set, they are not expected to be changed except for the following possible conditions:
-- One of the underlying asset has a better tokenized version
-- One of the tokenized asset has a potential security issue
+Once the portfolio assets are set, they are not expected to be changed except for the following possible conditions:
+- Underlying asset has a better tokenized version
+- Tokenized asset has a potential security issue
 - The performance and market volatility of a certain asset is harming the stability of the vault that DRC holders and DR-POD holders have voted to change the allocations.
 
-When changing strategy, the contract will convert all the current portfolio assets to WETH. Then the WETH will be divided by the new portfolio assets' allocation percentages, and be converted to portfolio assets.
+When changing strategy, the contract will convert all the current portfolio assets to WETH. Then the WETH will be converted to new portfolio assets.
 
 Set and change strategy function is only executable by contract owner - [the DRC Foundation Fund Multi-sig Wallet](#digital-reserve-contract-owner).
-
-## Rebalancing
-
-Rebalancing is the process of realigning the weighting of a portfolio of assets to the strategy allocation that is defined.
-
-When rebalancing, the contract will check each of the portfolio asset's worth in ETH, and the vault's total worth in ETH. Based on the designed portfolio allocations, the contract will calculate how much each asset should be worth. Some of the assets' worth might exceed what it should be, whilst some would be below what it should be. The contract then will convert the overflowed parts of the assets to ETH. And then further swap the ETH to make up for the assets that is below the designed percentage value.
-
-Rebalancing is only executable by contract owner - [the DRC Foundation Fund Multi-sig Wallet](#digital-reserve-contract-owner).
 
 ## Proof of Deposit
 
@@ -146,7 +135,6 @@ The DRC Foundation wallet is a secure, industry grade multi-signature wallet man
 
 The contract owner can execute the following functions:
 - Turn deposit on/off - To protect users' fund if there's any security issue or assist DR upgrade
-- Rebalancing
 - Set/change strategy
 - Change withdrawal fee
 - Change contract owner - If better governance tool is available and the Foundation wallet address is changed
@@ -226,7 +214,7 @@ Withdraw a percentage of holding from DR. deadline	is Unix timestamp after which
 #### SetToken
 
 ```JS
-event StrategyChange(address oldTokenA, address oldTokenA, address newTokenA, address newTokenB, uint256 tokensStored);
+event SetToken(address oldTokenA, address oldTokenB, address newTokenA, address newTokenB, uint256 tokensStored);
 ```
 
 Emit when strategy set or change function is called by owner.
@@ -235,7 +223,7 @@ Emit when strategy set or change function is called by owner.
 #### Deposit
 
 ```JS
-event Deposit(address user, uint256 amount, uint256 podMinted, uint256 podTotalSupply);
+event Deposit(address user, uint256 amount, uint256 podMinted, uint256 podTotalSupply, uint256 tokenStored);
 ```
 
 Emit each time a deposit action happened.
@@ -243,7 +231,7 @@ Emit each time a deposit action happened.
 #### Withdraw
 
 ```JS
-event Withdraw(address user, uint256 amount, uint256 fees, uint256 podBurned, uint256 podTotalSupply);
+event Withdraw(address user, uint256 amount, uint256 fees, uint256 podBurned, uint256 podTotalSupply, uint256 tokenStored);
 ```
 
 Emit each time a withdraw action happened.

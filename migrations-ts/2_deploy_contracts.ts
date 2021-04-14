@@ -29,7 +29,7 @@ module.exports = async (
     aaveProtocol,
     drcAddress,
     "Digital Reserve",
-    "DR-POD-S2"
+    "DR-POD-S3"
   );
 
   const digitalReserve = await DigitalReserve.deployed();
