@@ -9,8 +9,8 @@ export interface DigitalReserveContract
   extends Truffle.Contract<DigitalReserveInstance> {
   "new"(
     _router: string,
-    _aaveRouter: string,
-    _aaveProtocol: string,
+    _lendingPoolProvider: string,
+    _protocolAddress: string,
     _drcAddress: string,
     _name: string,
     _symbol: string,
@@ -481,26 +481,26 @@ export interface DigitalReserveInstance extends Truffle.ContractInstance {
   /**
    * Set or change DR strategy tokens and allocations.
    * @param deadline Unix timestamp after which the transaction will revert.
-   * @param usdcToken_ strategy token address.
+   * @param strategyToken_ strategy token address.
    */
   setTokenAddress: {
     (
-      usdcToken_: string,
+      strategyToken_: string,
       deadline: number | BN | string,
       txDetails?: Truffle.TransactionDetails
     ): Promise<Truffle.TransactionResponse<AllEvents>>;
     call(
-      usdcToken_: string,
+      strategyToken_: string,
       deadline: number | BN | string,
       txDetails?: Truffle.TransactionDetails
     ): Promise<void>;
     sendTransaction(
-      usdcToken_: string,
+      strategyToken_: string,
       deadline: number | BN | string,
       txDetails?: Truffle.TransactionDetails
     ): Promise<string>;
     estimateGas(
-      usdcToken_: string,
+      strategyToken_: string,
       deadline: number | BN | string,
       txDetails?: Truffle.TransactionDetails
     ): Promise<number>;
@@ -877,26 +877,26 @@ export interface DigitalReserveInstance extends Truffle.ContractInstance {
     /**
      * Set or change DR strategy tokens and allocations.
      * @param deadline Unix timestamp after which the transaction will revert.
-     * @param usdcToken_ strategy token address.
+     * @param strategyToken_ strategy token address.
      */
     setTokenAddress: {
       (
-        usdcToken_: string,
+        strategyToken_: string,
         deadline: number | BN | string,
         txDetails?: Truffle.TransactionDetails
       ): Promise<Truffle.TransactionResponse<AllEvents>>;
       call(
-        usdcToken_: string,
+        strategyToken_: string,
         deadline: number | BN | string,
         txDetails?: Truffle.TransactionDetails
       ): Promise<void>;
       sendTransaction(
-        usdcToken_: string,
+        strategyToken_: string,
         deadline: number | BN | string,
         txDetails?: Truffle.TransactionDetails
       ): Promise<string>;
       estimateGas(
-        usdcToken_: string,
+        strategyToken_: string,
         deadline: number | BN | string,
         txDetails?: Truffle.TransactionDetails
       ): Promise<number>;

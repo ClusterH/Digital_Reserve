@@ -31,23 +31,24 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
     /**
      * @dev Set Uniswap router address, DRC token address, DR name.
      * @param _router Uniswap V2 router address.
-     * @param _aaveRouter AAVE Contract address.
+     * @param _lendingPoolProvider AAVE Lenging Pool Provider address.
+     * @param _protocolAddress AAVE Protocol Contract address.
      * @param _drcAddress DRC token address,
      * @param _name DR POD token name
      * @param _symbol DR POD token symbol
      */
     constructor(
         address _router,
-        address _aaveRouter,
-        address _aaveProtocol,
+        address _lendingPoolProvider,
+        address _protocolAddress,
         address _drcAddress,
         string memory _name,
         string memory _symbol
     ) public ERC20(_name, _symbol) {
         drcAddress = _drcAddress;
         uniswapRouter = IUniswapV2Router02(_router);
-        aaveLendingPool = ILendingPoolAddressesProvider(_aaveRouter);
-        aaveProtocol = IProtocolDataProvider(_aaveProtocol);
+        lendingPoolProvider = ILendingPoolAddressesProvider(_lendingPoolProvider);
+        protocolAddress = IProtocolDataProvider(_protocolAddress);
     }
 
     uint8 private _feeFraction = 1;
@@ -56,14 +57,14 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
     uint256 private _tokenPercentage = 100;
 
     address private drcAddress;
-    address private _aUSDCAddress;
-    address private _usdcToken;
+    address private _strategyReserve;
+    address private _strategyToken;
 
     bool private depositEnabled = false;
 
     IUniswapV2Router02 private immutable uniswapRouter;
-    ILendingPoolAddressesProvider private immutable aaveLendingPool;
-    IProtocolDataProvider private immutable aaveProtocol;
+    ILendingPoolAddressesProvider private immutable lendingPoolProvider;
+    IProtocolDataProvider private immutable protocolAddress;
 
     /**
      * @dev See {IDigitalReserve-withdrawalFee}.
@@ -83,9 +84,9 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
      * @dev See {IDigitalReserve-totalTokenStored}.
      */
     function totalTokenStored() public view override returns (uint256) {
-        require(_aUSDCAddress != address(0x00), "aUSDC address must be set.");
+        require(_strategyReserve != address(0x00), "strategy reserve address must be set.");
         uint256 amounts = 0;
-        amounts = IERC20(_aUSDCAddress).balanceOf(address(this));
+        amounts = IERC20(_strategyReserve).balanceOf(address(this));
         return amounts;
     }
 
@@ -96,8 +97,8 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
         address user
     ) public view override returns (uint256, uint256, uint256) {
         uint256 userStrategyTokens = _getStrategyTokensByPodAmount(balanceOf(user));
-        uint256 userVaultWorthInEth = _getEthAmountByTokenAmount(userStrategyTokens, _usdcToken, true);
-        uint256 userVaultWorthInEthAfterSwap = _getEthAmountByTokenAmount(userStrategyTokens, _usdcToken, false);
+        uint256 userVaultWorthInEth = _getEthAmountByTokenAmount(userStrategyTokens, _strategyToken, true);
+        uint256 userVaultWorthInEthAfterSwap = _getEthAmountByTokenAmount(userStrategyTokens, _strategyToken, false);
 
         uint256 drcAmountBeforeFees = _getTokenAmountByEthAmount(userVaultWorthInEth, drcAddress, true);
 
@@ -113,7 +114,7 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
     function getProofOfDepositPrice() public view override returns (uint256) {
         uint256 proofOfDepositPrice = 0;
         if (totalSupply() > 0) {
-            ILendingPool lendingPool = ILendingPool(aaveLendingPool.getLendingPool());
+            ILendingPool lendingPool = ILendingPool(lendingPoolProvider.getLendingPool());
             (uint256 vaultTotalInEth, , , , , ) = lendingPool.getUserAccountData(address(this));
 
             proofOfDepositPrice = vaultTotalInEth.mul(1e18).div(totalSupply());
@@ -144,7 +145,7 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
         if (totalSupply() == 0) {
             podToMint = drcAmount.mul(1e15);
         } else {
-            ILendingPool lendingPool = ILendingPool(aaveLendingPool.getLendingPool());
+            ILendingPool lendingPool = ILendingPool(lendingPoolProvider.getLendingPool());
             (uint256 vaultTotalInEth, , , , , ) = lendingPool.getUserAccountData(address(this));
             uint256 newPodTotal = vaultTotalInEth.mul(1e18).div(currentPodUnitPrice);
             podToMint = newPodTotal.sub(totalSupply());
@@ -170,7 +171,7 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
 
         uint256 userStrategyTokens = _getStrategyTokensByPodAmount(balanceOf(msg.sender));
 
-        uint256 userVaultWorth = _getEthAmountByTokenAmount(userStrategyTokens, _usdcToken, false);
+        uint256 userVaultWorth = _getEthAmountByTokenAmount(userStrategyTokens, _strategyToken, false);
 
         require(userVaultWorth >= ethNeededPlusFee, "Attempt to withdraw more than user's holding.");
 
@@ -218,37 +219,37 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
 
     /**
      * @dev Set or change DR strategy tokens and allocations.
-     * @param usdcToken_ strategy token address.
+     * @param strategyToken_ strategy token address.
      * @param deadline Unix timestamp after which the transaction will revert.
      */
     function setTokenAddress(
-        address usdcToken_,
+        address strategyToken_,
         uint32 deadline
     ) external onlyOwner {
-        require(usdcToken_ != address(0x00), "USDC address must be set.");
+        require(strategyToken_ != address(0x00), "Strategy token address must be set.");
 
-        address oldUSDCTokens = address(0x00);
-        address oldaUSDCTokens = address(0x00);
+        address oldStrategyTokens = address(0x00);
+        address oldStrategyReserve = address(0x00);
         uint256 ethConverted = 0;
 
-        if(_usdcToken != address(0x00) && _aUSDCAddress != address(0x00)){
-            oldUSDCTokens = _usdcToken;
-            oldaUSDCTokens = _aUSDCAddress;
+        if(_strategyToken != address(0x00) && _strategyReserve != address(0x00)){
+            oldStrategyTokens = _strategyToken;
+            oldStrategyReserve = _strategyReserve;
             // Before mutate strategyTokens, convert current strategy tokens to ETH
             ethConverted = _convertStrategyTokensToEth(totalTokenStored(), deadline);
         }
 
-        _usdcToken = usdcToken_;
-        (address aUSDCToken, , ) = aaveProtocol.getReserveTokensAddresses(usdcToken_);
+        _strategyToken = strategyToken_;
+        (address strategyReserve, , ) = protocolAddress.getReserveTokensAddresses(strategyToken_);
 
-        _aUSDCAddress = aUSDCToken;
+        _strategyReserve = strategyReserve;
         
         if(ethConverted != 0){
             _convertEthToStrategyTokens(ethConverted, deadline);
         }
 
-        // if(_aUSDCAddress != address(0x00)){
-            emit SetToken(oldUSDCTokens, oldaUSDCTokens, _usdcToken, _aUSDCAddress, totalTokenStored());
+        // if(_strategyReserve != address(0x00)){
+            emit SetToken(oldStrategyTokens, oldStrategyReserve, _strategyToken, _strategyReserve, totalTokenStored());
         // }
     }
 
@@ -347,7 +348,7 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
         if(totalSupply() > 0){
             podFraction = _amount.mul(1e10).div(totalSupply());
         }
-        strategyTokenAmount = IERC20(_aUSDCAddress).balanceOf(address(this)).mul(podFraction).div(1e10);
+        strategyTokenAmount = IERC20(_strategyReserve).balanceOf(address(this)).mul(podFraction).div(1e10);
         return strategyTokenAmount;
     }
 
@@ -421,18 +422,18 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
         uint256 amount, 
         uint32 deadline
     ) private returns (uint256) {
-        uint256 EthToTokenAmount = _convertEthToToken(amount, _usdcToken, deadline);
+        uint256 EthToTokenAmount = _convertEthToToken(amount, _strategyToken, deadline);
 
         uint16 referralCode = 0;
-        ILendingPool lendingPool = ILendingPool(aaveLendingPool.getLendingPool());
+        ILendingPool lendingPool = ILendingPool(lendingPoolProvider.getLendingPool());
 
         /** For the production mode, it is better */
-        // SafeERC20.safeApprove(IERC20(_usdcToken), address(aaveLendingPool), amount);
+        // SafeERC20.safeApprove(IERC20(_strategyToken), address(lendingPoolProvider), amount);
 
         /** For the test mode, it is better to test and debug */
-        IERC20(_usdcToken).approve(address(lendingPool), EthToTokenAmount);
+        IERC20(_strategyToken).approve(address(lendingPool), EthToTokenAmount);
 
-        lendingPool.deposit(_usdcToken, EthToTokenAmount, address(this), referralCode);
+        lendingPool.deposit(_strategyToken, EthToTokenAmount, address(this), referralCode);
     }
 
     /**
@@ -446,11 +447,11 @@ contract DigitalReserve is IDigitalReserve, ERC20, Ownable {
     ) private returns (uint256) {
         uint256 ethConverted = 0;
 
-        uint256 getUSDC = 0;
-        ILendingPool lendingPool = ILendingPool(aaveLendingPool.getLendingPool());
-        getUSDC = lendingPool.withdraw(_usdcToken, amountToConvert, address(this));
+        uint256 getStrategyToken = 0;
+        ILendingPool lendingPool = ILendingPool(lendingPoolProvider.getLendingPool());
+        getStrategyToken = lendingPool.withdraw(_strategyToken, amountToConvert, address(this));
 
-        ethConverted = _convertTokenToEth(getUSDC, _usdcToken, deadline);
+        ethConverted = _convertTokenToEth(getStrategyToken, _strategyToken, deadline);
         return ethConverted;
     }
 }
